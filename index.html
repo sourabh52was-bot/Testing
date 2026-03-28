@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoValue PH - Used Car Valuation Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .spinner { animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="car-front" class="h-8 w-8 text-blue-600"></i>
+                    <span class="font-bold text-xl tracking-tight text-slate-900">AutoValue <span class="text-blue-600">PH</span></span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+        
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-slate-900">Value Your Car</h1>
+            <p class="mt-2 text-slate-600">Get an instant, data-driven estimate based on live market conditions.</p>
+        </div>
+
+        <div id="systemError" class="hidden mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-3">
+            <i data-lucide="alert-triangle" class="h-5 w-5"></i>
+            <div>
+                <strong class="font-semibold">Backend Connection Failed.</strong>
+                <span class="block sm:inline text-sm">Make sure your FastAPI server is running on localhost:8000.</span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <!-- Left Column: Input Form -->
+            <div class="lg:col-span-5">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8 relative">
+                    
+                    <!-- Form Loader -->
+                    <div id="formLoader" class="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-2xl">
+                        <i data-lucide="loader-2" class="h-8 w-8 text-blue-600 spinner mb-2"></i>
+                        <span class="text-sm font-medium text-slate-600">Loading Market Data...</span>
+                    </div>
+
+                    <form id="valuationForm" class="space-y-5">
+                        <!-- Make -->
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Make</label>
+                            <select id="makeSelect" class="block w-full pl-4 pr-10 py-3 border-slate-300 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-xl bg-slate-50 border appearance-none" disabled required>
+                                <option value="" disabled selected>Select Make</option>
+                            </select>
+                        </div>
+                        <!-- Model -->
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Model</label>
+                            <select id="modelSelect" class="block w-full pl-4 pr-10 py-3 border-slate-300 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-xl bg-slate-50 border appearance-none disabled:opacity-50" disabled required>
+                                <option value="" disabled selected>Select Model</option>
+                            </select>
+                        </div>
+                        <!-- Variant -->
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Variant</label>
+                            <select id="variantSelect" class="block w-full pl-4 pr-10 py-3 border-slate-300 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-xl bg-slate-50 border appearance-none disabled:opacity-50" disabled required>
+                                <option value="" disabled selected>Select Variant</option>
+                            </select>
+                        </div>
+                        <!-- Year -->
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Year</label>
+                            <select id="yearSelect" class="block w-full pl-4 pr-10 py-3 border-slate-300 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-xl bg-slate-50 border appearance-none disabled:opacity-50" disabled required>
+                                <option value="" disabled selected>Select Year</option>
+                            </select>
+                        </div>
+
+                        <div class="pt-4">
+                            <button id="submitBtn" type="submit" class="w-full flex justify-center items-center py-3.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all disabled:opacity-70 disabled:cursor-not-allowed">
+                                <span>Calculate Value</span>
+                                <i data-lucide="calculator" id="calcIcon" class="ml-2 h-4 w-4"></i>
+                                <i data-lucide="loader-2" id="calcSpinner" class="ml-2 h-4 w-4 spinner hidden"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Right Column: Results -->
+            <div class="lg:col-span-7 flex flex-col h-full">
+                <!-- Initial State -->
+                <div id="emptyState" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 flex flex-col items-center justify-center text-center h-full min-h-[400px]">
+                    <div class="bg-slate-100 p-4 rounded-full mb-4">
+                        <i data-lucide="bar-chart-3" class="h-10 w-10 text-slate-400"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-slate-900">No vehicle selected</h3>
+                    <p class="mt-1 text-sm text-slate-500 max-w-sm">Select vehicle details to fetch its estimated current market value from the engine.</p>
+                </div>
+
+                <!-- Results State -->
+                <div id="resultsState" class="hidden flex flex-col gap-6 h-full">
+                    <div class="bg-white rounded-2xl shadow-sm border border-blue-100 p-6 sm:p-8 bg-gradient-to-br from-blue-50 to-white relative overflow-hidden">
+                        <h2 class="text-sm font-semibold text-blue-600 uppercase tracking-wider mb-1">Estimated Current Value</h2>
+                        <p id="carTitleDisplay" class="text-slate-600 font-medium mb-4 text-lg"></p>
+                        
+                        <div class="text-5xl font-extrabold text-slate-900 tracking-tight" id="currentValueDisplay"></div>
+                        
+                        <div class="mt-6 flex flex-wrap gap-4 text-sm">
+                            <div class="bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm flex items-center">
+                                <span class="text-slate-500 mr-1">New Price:</span>
+                                <span class="font-semibold text-slate-700" id="originalPriceDisplay"></span>
+                            </div>
+                            <div class="bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm flex items-center">
+                                <span class="text-slate-500 mr-1">Total Dropped:</span>
+                                <span class="font-semibold text-red-600" id="totalDropDisplay"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 flex-grow flex flex-col overflow-hidden">
+                        <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                            <h3 class="text-base font-semibold text-slate-800">Depreciation Schedule</h3>
+                        </div>
+                        <div class="overflow-x-auto custom-scrollbar flex-grow">
+                            <table class="min-w-full divide-y divide-slate-200">
+                                <thead class="bg-slate-50 sticky top-0">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Year</th>
+                                        <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Age</th>
+                                        <th class="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Depreciation</th>
+                                        <th class="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="scheduleTableBody" class="bg-white divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        lucide.createIcons();
+
+        const API_BASE_URL = 'http://localhost:8000'; // Make sure backend is running here
+        let marketData = {};
+
+        // DOM Elements
+        const makeSelect = document.getElementById('makeSelect');
+        const modelSelect = document.getElementById('modelSelect');
+        const variantSelect = document.getElementById('variantSelect');
+        const yearSelect = document.getElementById('yearSelect');
+        const formLoader = document.getElementById('formLoader');
+        const systemError = document.getElementById('systemError');
+
+        const formatter = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', maximumFractionDigits: 0 });
+
+        // Initialize App: Fetch database structure from API
+        async function initialize() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/database`);
+                if (!response.ok) throw new Error('Network response was not ok');
+                marketData = await response.json();
+                
+                populateSelect(makeSelect, Object.keys(marketData), 'Select Make');
+                makeSelect.disabled = false;
+                formLoader.classList.add('hidden');
+            } catch (error) {
+                console.error("Failed to fetch database:", error);
+                formLoader.classList.add('hidden');
+                systemError.classList.remove('hidden');
+            }
+        }
+
+        function populateSelect(selectElement, optionsArray, placeholder) {
+            selectElement.innerHTML = `<option value="" disabled selected>${placeholder}</option>`;
+            optionsArray.sort().forEach(option => {
+                selectElement.appendChild(new Option(option, option));
+            });
+            selectElement.disabled = optionsArray.length === 0;
+        }
+
+        // Dropdown Logic
+        makeSelect.addEventListener('change', () => {
+            populateSelect(modelSelect, Object.keys(marketData[makeSelect.value]), 'Select Model');
+            populateSelect(variantSelect, [], 'Select Variant');
+            populateSelect(yearSelect, [], 'Select Year');
+        });
+
+        modelSelect.addEventListener('change', () => {
+            populateSelect(variantSelect, Object.keys(marketData[makeSelect.value][modelSelect.value]), 'Select Variant');
+            populateSelect(yearSelect, [], 'Select Year');
+        });
+
+        variantSelect.addEventListener('change', () => {
+            const years = Object.keys(marketData[makeSelect.value][modelSelect.value][variantSelect.value]);
+            populateSelect(yearSelect, years.sort((a,b) => b-a), 'Select Year'); // Sort descending
+        });
+
+        // Form Submission logic
+        document.getElementById('valuationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // UI Loading State
+            const submitBtn = document.getElementById('submitBtn');
+            const calcIcon = document.getElementById('calcIcon');
+            const calcSpinner = document.getElementById('calcSpinner');
+            
+            submitBtn.disabled = true;
+            calcIcon.classList.add('hidden');
+            calcSpinner.classList.remove('hidden');
+
+            const payload = {
+                make: makeSelect.value,
+                model: modelSelect.value,
+                variant: variantSelect.value,
+                year: parseInt(yearSelect.value)
+            };
+
+            try {
+                // Call the FastAPI Backend
+                const response = await fetch(`${API_BASE_URL}/api/evaluate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error('API Error');
+                const result = await response.json();
+
+                // Render Results
+                document.getElementById('carTitleDisplay').textContent = result.car_title;
+                document.getElementById('currentValueDisplay').textContent = formatter.format(result.current_value);
+                document.getElementById('originalPriceDisplay').textContent = formatter.format(result.base_price);
+                document.getElementById('totalDropDisplay').textContent = formatter.format(result.total_drop);
+
+                const tbody = document.getElementById('scheduleTableBody');
+                tbody.innerHTML = '';
+                
+                const currentYear = new Date().getFullYear();
+                
+                result.depreciation_schedule.forEach(row => {
+                    const isCurrentYear = row.year === currentYear;
+                    const tr = document.createElement('tr');
+                    if (isCurrentYear) tr.className = "bg-blue-50/50";
+                    
+                    tr.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm ${isCurrentYear ? 'font-bold text-blue-700' : 'font-medium text-slate-900'}">
+                            ${row.year} ${isCurrentYear ? '<span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">Current</span>' : ''}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${row.age} yrs</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right ${row.age === 0 ? 'text-slate-400' : 'text-red-500 font-medium'}">${row.depreciation_rate}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-right ${isCurrentYear ? 'font-bold text-slate-900' : 'font-medium text-slate-700'}">${formatter.format(row.value)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                document.getElementById('emptyState').classList.add('hidden');
+                document.getElementById('resultsState').classList.remove('hidden');
+
+            } catch (error) {
+                alert("Error connecting to backend evaluation engine.");
+            } finally {
+                // Restore UI State
+                submitBtn.disabled = false;
+                calcIcon.classList.remove('hidden');
+                calcSpinner.classList.add('hidden');
+            }
+        });
+
+        // Start the app
+        initialize();
+    </script>
+</body>
+</html>
